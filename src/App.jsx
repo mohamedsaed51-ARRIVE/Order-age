@@ -75,6 +75,7 @@ export default function App() {
   const rangeDates = [...new Set(inRange.map((r) => r.date))].sort();
   const snap = rangeDates[rangeDates.length - 1];
   const prevDate = [...new Set(rows.filter(branchOk).map((r) => r.date))].sort().filter((d) => d < snap).pop();
+  const S = snap || '—';
   const snapRows = inRange.filter((r) => r.date === snap);
   const prevRows = prevDate ? rows.filter((r) => r.date === prevDate && branchOk(r)) : null;
   const T = sum(snapRows), P = prevRows ? sum(prevRows) : null;
@@ -105,15 +106,18 @@ export default function App() {
   );
   const modal = showSet && <Settings cfg={cfg} url={url} onClose={() => setShowSet(false)} onSave={(c) => { setCfg(c); saveCfg('oa_cfg', c); setShowSet(false); }} />;
 
+  /* ---------- رسالة الحالة (تظهر أعلى الصفحة، واللوحة كلها تظهر دائمًا حتى لو فاضية) ---------- */
+  let banner = null;
   if (status === 'nourl' || status === 'idle') {
-    return (<>{header}{modal}<div className="empty"><h2>لم يتم ضبط مصدر البيانات بعد</h2>
-      <p>افتح «إعدادات» وأضف رابط Apps Script (ينتهي بـ <b className="fi">/exec</b>)، أو أضف متغير البيئة في Vercel:</p>
-      <pre>VITE_DATA_URL=https://script.google.com/macros/s/XXXX/exec</pre>
-      <button className="btn" onClick={() => setDemoOn(true)}>معاينة ببيانات تجريبية</button></div></>);
-  }
-  if (status === 'loading') return <>{header}{modal}<div className="empty muted">جارٍ تحميل البيانات…</div></>;
-  if (status === 'error' && !rows.length) return <>{header}{modal}<div className="empty"><h2 className="bad">تعذر تحميل البيانات</h2><p>{msg}</p><button className="btn" onClick={() => reload()}>إعادة المحاولة الآن</button></div></>;
-  if (!rows.length) {
+    banner = (<div className="panel"><h3><i className="fa-solid fa-plug-circle-xmark warn" /> لم يتم ضبط مصدر البيانات بعد</h3>
+      <p>افتح «إعدادات» وأضف رابط Apps Script (ينتهي بـ <b className="fi">/exec</b>)، أو أضف متغير البيئة <b className="fi">VITE_DATA_URL</b> في Vercel.</p>
+      <p><button className="btn" onClick={() => setShowSet(true)}>إعدادات</button> <button className="btn sec" onClick={() => setDemoOn(true)}>معاينة ببيانات تجريبية</button></p></div>);
+  } else if (status === 'loading') {
+    banner = <div className="alert s-progress"><i className="fa-solid fa-spinner fa-spin" /><span>جارٍ تحميل البيانات…</span></div>;
+  } else if (status === 'error' && !rows.length) {
+    banner = (<div className="panel"><h3 className="bad"><i className="fa-solid fa-circle-exclamation" /> تعذر تحميل البيانات</h3><p>{msg}</p>
+      <p>تأكد أن الويب آب منشور بالوصول «أي شخص» وأن الرابط ينتهي بـ /exec.</p><p><button className="btn" onClick={() => reload()}>إعادة المحاولة الآن</button></p></div>);
+  } else if (!rows.length) {
     const m = meta || {};
     let why = 'الويب آب رد بنجاح لكن بدون أي صفوف.';
     let todo = 'في الشيت: الصق تصدير اليوم في Raw_Daily ثم من القائمة «الأوديت اليومي» اختر «تحديث» لإنشاء تاب باسم تاريخ اليوم (مثل 2026-11-04).';
@@ -125,11 +129,10 @@ export default function App() {
     } else if (m.hasRows && !Array.isArray(m.tabs)) {
       todo += ' وإن كان لديك تاب يوم بالفعل فغالبًا نسخة النشر قديمة: اعمل «إصدار جديد» للنشر بعد لصق آخر كود.';
     }
-    return (<>{header}{modal}<div className="empty"><h2>لا توجد بيانات للعرض</h2>
+    banner = (<div className="panel"><h3 className="warn"><i className="fa-solid fa-triangle-exclamation" /> لا توجد بيانات للعرض بعد</h3>
       <p>{why}</p><p>{todo}</p>
-      <details style={{ marginTop: 10 }}><summary>تفاصيل تشخيصية</summary>
-        <pre>{JSON.stringify({ keys: m.keys, tabs: m.tabs, sheets: m.sheets, generated }, null, 1)}</pre></details>
-      <p><button className="btn" onClick={() => reload()}>إعادة التحميل</button> <button className="btn sec" onClick={() => setDemoOn(true)}>معاينة ببيانات تجريبية</button></p></div></>);
+      <details><summary>تفاصيل تشخيصية</summary><pre>{JSON.stringify({ keys: m.keys, tabs: m.tabs, sheets: m.sheets, generated }, null, 1)}</pre></details>
+      <p><button className="btn" onClick={() => reload()}>إعادة التحميل</button> <button className="btn sec" onClick={() => setDemoOn(true)}>معاينة ببيانات تجريبية</button></p></div>);
   }
 
   /* ---------- حسابات ---------- */
@@ -144,10 +147,10 @@ export default function App() {
     if (r.d != null && r.d >= 3) alerts.push({ c: 's-action', i: 'fa-arrow-trend-up', t: `${r.branch}: ارتفعت نسبة المتابعة ${r.d.toFixed(1)} نقطة عن اليوم السابق` });
     if (N(r.high) > 0 && r.cov < +cfg.covMin) alerts.push({ c: 's-violation', i: 'fa-bell', t: `${r.branch}: ${fi(r.high)} شحنة أولوية عالية والتغطية ${fp(r.cov)} فقط` });
   });
-  if (T.followup && T.cov < +cfg.covMin) alerts.push({ c: 's-action', i: 'fa-clipboard-question', t: `تغطية التبليغات الإجمالية ${fp(T.cov)} أقل من ${cfg.covMin}% في ${snap}` });
+  if (T.followup && T.cov < +cfg.covMin) alerts.push({ c: 's-action', i: 'fa-clipboard-question', t: `تغطية التبليغات الإجمالية ${fp(T.cov)} أقل من ${cfg.covMin}% في ${S}` });
   const recent = dates.slice(Math.max(0, dates.indexOf(snap) - 14), dates.indexOf(snap));
   const missing = [...new Set(rows.filter((r) => recent.includes(r.date)).map((r) => r.branch))].filter((b) => (!sel.length || sel.includes(b)) && !snapRows.some((r) => r.branch === b));
-  if (missing.length) alerts.push({ c: 's-action', i: 'fa-eye-slash', t: `فروع ظهرت في الأيام السابقة وغائبة عن ${snap}: ${missing.join('، ')}` });
+  if (missing.length) alerts.push({ c: 's-action', i: 'fa-eye-slash', t: `فروع ظهرت في الأيام السابقة وغائبة عن ${S}: ${missing.join('، ')}` });
   const repF = repeated.filter(branchOk);
   const repNot = repF.reduce((s, r) => s + N(r.not_notified), 0);
   if (repNot > 0) alerts.push({ c: 's-violation', i: 'fa-repeat', t: `${fi(repNot)} أوردر متكرر لم يُبلَّغ عنه` });
@@ -164,7 +167,7 @@ export default function App() {
     return { ...r, reasons, acts };
   });
   const copyActions = async () => {
-    const txt = `ملخص أوديت الأوردرات ${snap}\n` + actions.map((a) => `- ${a.branch}: ${a.reasons.join('، ')} | المقترح: ${a.acts.join('، ')} | المسؤول: [  ] | الموعد: [  ]`).join('\n');
+    const txt = `ملخص أوديت الأوردرات ${S}\n` + actions.map((a) => `- ${a.branch}: ${a.reasons.join('، ')} | المقترح: ${a.acts.join('، ')} | المسؤول: [  ] | الموعد: [  ]`).join('\n');
     try { await navigator.clipboard.writeText(txt); setCopied('تم النسخ'); } catch { setCopied('تعذر النسخ'); }
     setTimeout(() => setCopied(''), 2500);
   };
@@ -180,7 +183,7 @@ export default function App() {
   const stMap = {}; snapStatuses.forEach((s) => { stMap[s.status] = (stMap[s.status] || 0) + N(s.n); });
   const stTop = Object.entries(stMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const insights = [];
-  if (worst[0]) insights.push(`أعلى نسبة متابعة في ${snap}: ${worst[0].branch} (${fp(worst[0].rate)}).`);
+  if (worst[0]) insights.push(`أعلى نسبة متابعة في ${S}: ${worst[0].branch} (${fp(worst[0].rate)}).`);
   if (totF) insights.push(`أكثر 3 فروع في عدد الشحنات للمتابعة تمثل ${top3Share.toFixed(0)}% من الإجمالي.`);
   if (regAgg.length > 1) { const w = [...regAgg].sort((a, b) => b.rate - a.rate)[0]; insights.push(`أعلى إقليم في نسبة المتابعة: ${w.region} (${fp(w.rate)}).`); }
   if (riser && riser.d < 0) insights.push(`أكبر تحسن: ${riser.branch} (${sgn(riser.d)} نقطة).`);
@@ -207,18 +210,19 @@ export default function App() {
   const cmpSum = (d) => sum(rows.filter((r) => r.date === d && branchOk(r)));
   const A = cmp.on ? cmpSum(cmp.a) : null, B = cmp.on ? cmpSum(cmp.b) : null;
 
-  const connLabel = status === 'error' ? 'خطأ في الاتصال' : demoOn ? 'تجريبي' : status === 'refreshing' ? 'جارٍ التحديث' : 'متصل';
-  const connCls = status === 'error' ? 's-violation' : demoOn ? 's-action' : 's-success';
+  const connLabel = status === 'error' ? 'خطأ في الاتصال' : demoOn ? 'تجريبي' : status === 'refreshing' ? 'جارٍ التحديث' : (status === 'nourl' || status === 'idle') ? 'غير مضبوط' : status === 'loading' ? 'جارٍ التحميل' : 'متصل';
+  const connCls = status === 'error' ? 's-violation' : (demoOn || status === 'nourl' || status === 'idle') ? 's-action' : 's-success';
   const typeTot = [T.case_late, T.order_late, T.cs_late];
 
   return (
     <>
       {header}{modal}
       <div className="page">
+        {banner}
         <div className="meta">
           <span className={'chip ' + connCls}><span className="dot" />{connLabel}</span>
           <span>آخر تحديث للبيانات: <b className="fi">{generated && generated !== 'demo' ? generated.slice(0, 16).replace('T', ' ') + ' UTC' : at ? at.toLocaleString('en-GB') : '—'}</b></span>
-          <span>يوم الأوديت المعروض: <b className="fi">{snap}</b></span>
+          <span>يوم الأوديت المعروض: <b className="fi">{S}</b></span>
           <span>الأيام: <b className="fi">{dates.length}</b></span>
           <span>الفروع: <b className="fi">{allBranches.length}</b></span>
           <span>الأعداد من تابات الأيام في الشيت (مجمّعة بدون بيانات شحنات)</span>
@@ -255,8 +259,8 @@ export default function App() {
           </div>
         </div>
 
-        {!snapRows.length ? <div className="panel"><p>لا توجد بيانات تطابق الفلاتر الحالية.</p></div> : (<>
-        <Heading tag="اليوم" title={`المؤشرات الرئيسية — ‎${snap}‎`} sub="الشحنة الواحدة قد تظهر في أكثر من نوع تأخر (حالة، أوردر، خدمة عملاء)، لذلك مجموع الأنواع أكبر من «للمتابعة»." />
+        <>
+        <Heading tag="اليوم" title={`المؤشرات الرئيسية — ‎${S}‎`} sub="الشحنة الواحدة قد تظهر في أكثر من نوع تأخر (حالة، أوردر، خدمة عملاء)، لذلك مجموع الأنواع أكبر من «للمتابعة»." />
         <div className="kpi-row">
           <div className="kpi"><span className="l">شحنات التقرير</span><span className="v">{fi(T.total)}</span><Delta cur={T.total} prev={P && P.total} lowerBetter={false} /></div>
           <div className={'kpi ' + (T.rate <= th.good ? 'accent-ok' : T.rate <= th.bad ? 'accent-warn' : 'accent-bad')}><span className="l">للمتابعة (فريد)</span><span className="v">{fi(T.followup)}</span>
@@ -273,7 +277,7 @@ export default function App() {
         <Heading tag="أداء" title="صحة الفروع" sub={`حسب نسبة المتابعة (الأقل أفضل): ممتاز ≤ ${th.excellent}% — جيد ≤ ${th.good}% — يحتاج انتباه ≤ ${th.bad}% — حرج أعلى من ذلك (حدود للعرض وليست سياسة معتمدة)`} />
         <div className="panel tscroll"><table>
           <thead><tr><th>الفرع</th><th>الإقليم</th><th>الشحنات</th><th>للمتابعة</th><th>نسبة المتابعة</th><th>التغيير (نقطة)</th><th>حالة</th><th>أوردر</th><th>خدمة عملاء</th><th>التغطية</th><th>أولوية عالية</th><th>المستوى</th></tr></thead>
-          <tbody>{board.map((r) => (
+          <tbody>{board.length === 0 && <tr><td colSpan={12} className="muted">لا توجد بيانات</td></tr>}{board.map((r) => (
             <tr key={r.branch}><td>{r.branch}</td><td className="muted">{r.region}</td><td className="n">{fi(r.total)}</td><td className="n">{fi(r.followup)}</td><td className="n"><b>{fp(r.rate)}</b></td>
               <td className={'n ' + (r.d == null ? 'muted' : r.d < 0 ? 'ok' : r.d > 0 ? 'bad' : 'muted')} dir="ltr" style={{ textAlign: 'right' }}>{r.d == null ? '—' : sgn(r.d)}</td>
               <td className="n">{fi(r.case_late)}</td><td className="n">{fi(r.order_late)}</td><td className="n">{fi(r.cs_late)}</td><td className="n">{fp(r.cov)}</td><td className="n">{fi(r.high)}</td><td><Badge lv={r.lv} /></td></tr>))}</tbody>
@@ -281,7 +285,7 @@ export default function App() {
 
         <Heading tag="اتجاهات" title="الاتجاهات والتوزيعات" />
         <div className="panel-grid">
-          <div className="panel"><h3>اتجاه نسبة المتابعة</h3><p className="panel-sub">الإجمالي وأعلى 3 فروع في {snap}</p>
+          <div className="panel"><h3>اتجاه نسبة المتابعة</h3><p className="panel-sub">الإجمالي وأعلى 3 فروع في {S}</p>
             <div className="chart-wrap tall"><ChartBox type="line" theme={theme} labels={rangeDates} datasets={trendSets} pct /></div></div>
           <div className="panel"><h3>اتجاه نسبة التغطية</h3><p className="panel-sub">الشحنات التي سُجل لها إجراء ÷ للمتابعة</p>
             <div className="chart-wrap tall"><ChartBox type="line" theme={theme} legend={false} labels={rangeDates} datasets={[{ label: 'التغطية', data: covTrend, borderColor: cv('--status-success'), backgroundColor: cv('--status-success'), tension: .25, borderWidth: 3, pointRadius: 3 }]} pct /></div></div>
@@ -290,17 +294,17 @@ export default function App() {
               { label: 'حالة', data: byF.map((r) => N(r.case_late)), backgroundColor: cv('--status-action') },
               { label: 'أوردر (الشركة)', data: byF.map((r) => N(r.order_late)), backgroundColor: cv('--status-violation') },
               { label: 'خدمة عملاء', data: byF.map((r) => N(r.cs_late)), backgroundColor: cv('--chart-2') }]} /></div></div>
-          <div className="panel"><h3>توزيع أنواع التأخر</h3><p className="panel-sub">إجمالي {snap} (قد تتداخل الأنواع)</p>
+          <div className="panel"><h3>توزيع أنواع التأخر</h3><p className="panel-sub">إجمالي {S} (قد تتداخل الأنواع)</p>
             <div className="chart-wrap"><ChartBox type="doughnut" theme={theme} labels={['حالة', 'أوردر (الشركة)', 'خدمة عملاء']} datasets={[{ data: typeTot, backgroundColor: [cv('--status-action'), cv('--status-violation'), cv('--chart-2')], borderWidth: 0 }]} /></div></div>
-          <div className="panel"><h3>نسبة المتابعة حسب الإقليم</h3><p className="panel-sub">{snap}</p>
+          <div className="panel"><h3>نسبة المتابعة حسب الإقليم</h3><p className="panel-sub">{S}</p>
             <div className="chart-wrap"><ChartBox type="bar" theme={theme} legend={false} pct labels={regAgg.map((x) => x.region)} datasets={[{ label: 'نسبة المتابعة', data: regAgg.map((x) => +x.rate.toFixed(1)), backgroundColor: cv('--chart-1') }]} /></div></div>
-          <div className="panel"><h3>أكثر الحالات تأخراً</h3><p className="panel-sub">{stTop.length ? `عدد الشحنات المتأخرة في الحالة — ${snap}` : 'بيانات الحالات متاحة لآخر 14 يوم فقط'}</p>
+          <div className="panel"><h3>أكثر الحالات تأخراً</h3><p className="panel-sub">{stTop.length ? `عدد الشحنات المتأخرة في الحالة — ${S}` : 'بيانات الحالات متاحة لآخر 14 يوم فقط'}</p>
             <div className="chart-wrap">{stTop.length ? <ChartBox type="bar" theme={theme} horizontal legend={false} labels={stTop.map((x) => x[0])} datasets={[{ label: 'شحنات', data: stTop.map((x) => x[1]), backgroundColor: cv('--chart-3') }]} /> : <p className="muted">لا توجد حالات متأخرة لهذا اليوم/الفلاتر.</p>}</div></div>
         </div>
 
         <Heading tag="تبليغ" title="التبليغات والأوردرات المتكررة" sub="التبليغات المسجلة في تاب اليوم، وآخر قائمة للأوردرات المتكررة (من آخر تحديث)." />
         <div className="panel-grid">
-          <div className="panel"><h3>التبليغات المسجلة — {snap}</h3>
+          <div className="panel"><h3>التبليغات المسجلة — {S}</h3>
             <div className="chart-wrap"><ChartBox type="doughnut" theme={theme} labels={['خدمة عملاء', 'فروع داخلية', 'فروع خارجية']} datasets={[{ data: [T.n_cs, T.n_int, T.n_ext], backgroundColor: [cv('--chart-2'), cv('--chart-1'), cv('--chart-4')], borderWidth: 0 }]} /></div></div>
           <div className="panel tscroll"><h3>الأوردرات المتكررة حسب الفرع</h3>
             {repF.length ? <table>
@@ -317,7 +321,7 @@ export default function App() {
         <Heading tag="إجراءات" title="مركز الإجراءات" sub="إجراءات مقترحة من قواعد عامة وليست قرارات معتمدة. المسؤول والموعد تحددهما الإدارة." />
         <div className="panel">
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}><button className="qa-btn" onClick={copyActions}><i className="fa-solid fa-copy" />{copied || 'نسخ ملخص الإجراءات'}</button></div>
-          {actions.length === 0 && <p className="ok">لا توجد فروع فوق الحدود في {snap}.</p>}
+          {actions.length === 0 && <p className="ok">لا توجد فروع فوق الحدود في {S}.</p>}
           {actions.map((a, i) => (
             <div className={'act ' + a.lv} key={a.branch}>
               <div className="h"><b>{i + 1}. {a.branch}</b><Badge lv={a.lv} /></div>
@@ -357,13 +361,13 @@ export default function App() {
         <div className="panel">
           <div className="tscroll"><table>
             <thead><tr>{histCols.map(([k, h]) => <th key={k} onClick={() => setSort({ k, dir: sort.k === k ? -sort.dir : -1 })}>{h}{sort.k === k ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>)}</tr></thead>
-            <tbody>{hist.slice(pg * PAGE, pg * PAGE + PAGE).map((r) => (
+            <tbody>{hist.length === 0 && <tr><td colSpan={11} className="muted">لا توجد بيانات</td></tr>}{hist.slice(pg * PAGE, pg * PAGE + PAGE).map((r) => (
               <tr key={r.date + r.branch}><td className="n">{r.date}</td><td>{r.branch}</td><td className="muted">{r.region}</td><td className="n">{fi(r.total)}</td><td className="n">{fi(r.followup)}</td><td className="n">{fp(r.rate)}</td><td className="n">{fi(r.case_late)}</td><td className="n">{fi(r.order_late)}</td><td className="n">{fi(r.cs_late)}</td><td className="n">{fp(r.cov)}</td><td className="n">{fi(r.high)}</td></tr>))}</tbody>
           </table></div>
           <div className="pager"><span>صفحة {pg + 1} من {pages} — {fi(hist.length)} صف</span>
             <span><button className="qa-btn" disabled={pg === 0} onClick={() => setPage(pg - 1)}>السابق</button> <button className="qa-btn" disabled={pg >= pages - 1} onClick={() => setPage(pg + 1)}>التالي</button></span></div>
         </div>
-        </>)}
+        </>
 
         <div className="foot">
           <b>التعريفات:</b> عمر الحالة = تاريخ التقرير − تاريخ آخر حالة، مقارنًا بحد كل حالة شحنة. عمر الأوردر = تاريخ التقرير − تاريخ البيك أب، مقارنًا بحد الشركة وحد خدمة العملاء لفرع العضو. «للمتابعة» = شحنة متأخرة بأي نوع (مرة واحدة). نسبة المتابعة = للمتابعة ÷ شحنات الفرع (الأقل أفضل). نسبة التغطية = الشحنات التي سُجل لها إجراء ÷ للمتابعة. الحدود في ورقة Rules بالشيت. مستويات الصحة ومقترحات الإجراءات للعرض وتحتاج اعتماد الإدارة.
