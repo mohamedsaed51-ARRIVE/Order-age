@@ -24,7 +24,7 @@ function doGet(e) {
 
   tabs.forEach((t, i) => {
     const withStatus = i < OA.STATUS_DAYS;
-    const key = 'oa2_' + t.name + (withStatus ? '_s' : '');
+    const key = 'oa3_' + t.name + (withStatus ? '_s' : '');
     let agg = null;
     if (i >= OA.FRESH_DAYS) {                             // الأيام الأقدم تُخزَّن مؤقتًا (آخر يومين دائمًا طازجين)
       const c = cache.get(key);
@@ -80,7 +80,8 @@ function oaAggregate_(main, side, regions, iso, withStatus) {
   const by = {}, st = {};
   const get = b => by[b] || (by[b] = {
     date: iso, branch: b, region: regions[b] || '', total: totals[b] || 0, followup: 0, case_late: 0, order_late: 0,
-    cs_late: 0, handled: 0, n_cs: 0, n_int: 0, n_ext: 0, high: 0, repeated: 0, max_streak: 0
+    cs_late: 0, case_only: 0, case_first: 0, handled: 0, notified: 0, notified_oc: 0, n_cs: 0, n_int: 0, n_ext: 0,
+    high: 0, repeated: 0, max_streak: 0, cod: 0, cod_oc: 0, sum_oage: 0, max_oage: 0
   });
   main.forEach(r => {
     if (!r[W.AWB - 1]) return;
@@ -90,12 +91,17 @@ function oaAggregate_(main, side, regions, iso, withStatus) {
     if (!o.region) o.region = normHeader_(r[W.REGION - 1]);
     o.followup++;
     const type = String(r[W.TYPE - 1]);
-    const isCase = type.indexOf('حالة') >= 0;
+    const isCase = type.indexOf('حالة') >= 0, isOrder = type.indexOf('أوردر') >= 0, isCs = type.indexOf('خدمة') >= 0;
+    const cod = Number(r[W.COD - 1]) || 0;
+    const nt = normHeader_(r[W.NOTIF - 1]);
+    o.cod += cod;
     if (isCase) o.case_late++;
-    if (type.indexOf('أوردر') >= 0) o.order_late++;
-    if (type.indexOf('خدمة') >= 0) o.cs_late++;
+    if (isOrder) { o.order_late++; const oa = Number(r[W.O_AGE - 1]) || 0; o.sum_oage += oa; if (oa > o.max_oage) o.max_oage = oa; }
+    if (isCs) o.cs_late++;
+    if (isOrder || isCs) { o.cod_oc += cod; if (nt) o.notified_oc++; }
+    if (isCase && !isOrder && !isCs) { o.case_only++; if (Number(r[W.C_AGE - 1]) === Number(r[W.C_THR - 1])) o.case_first++; }
     if (normHeader_(r[W.ACTION - 1])) o.handled++;
-    const nt = String(r[W.NOTIF - 1]);
+    if (nt) o.notified++;
     if (nt.indexOf('خدمة') >= 0) o.n_cs++; else if (nt.indexOf('داخلية') >= 0) o.n_int++; else if (nt.indexOf('خارجية') >= 0) o.n_ext++;
     if (r[W.PRIORITY - 1] === 'عالية') o.high++;
     const sk = Number(r[W.STREAK - 1]) || 1;

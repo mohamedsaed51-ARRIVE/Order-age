@@ -304,8 +304,11 @@ function priorityOf_(it, rules) {
 }
 const PRIORITY_RANK = { 'عالية': 0, 'متوسطة': 1, 'عادية': 2 };
 
+// الأوردر المتأخر للشركة أولاً، ثم تبليغ خدمة العملاء، ثم تأخر الحالة؛ وداخل كل نوع بالأولوية ثم أيام التجاوز
+const typeRank_ = it => (it.type.indexOf('أوردر') >= 0 ? 0 : (it.type.indexOf('خدمة') >= 0 ? 1 : 2));
 function sortItems_(items) {
   items.sort((a, b) =>
+    (typeRank_(a) - typeRank_(b)) ||
     (PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]) ||
     (b.overdue - a.overdue) || (b.streak - a.streak) ||
     (a.branch < b.branch ? -1 : a.branch > b.branch ? 1 : 0));
@@ -613,14 +616,21 @@ function dashboardCells_() {
   put(1, 1, 'لوحة الأوديت اليومية — عمر الحالة وعمر الأوردر (الشركة وخدمة العملاء)');
   put(2, 1, 'اليوم المعروض (اختر من القائمة)');
   put(3, 1, 'اسم التاب'); put(3, 2, '=TEXT(B2,"yyyy-mm-dd")', true);
-  const kl = ['إجمالي الشحنات', 'للمتابعة (فريد)', 'حالة متأخرة', 'أوردر متأخر (الشركة)', 'تبليغ خدمة عملاء', 'تم التعامل', 'نسبة التغطية', 'أوردرات متكررة'];
+  // كروت للإدارة: أنواع التأخر بدون تداخل + التبليغ والتصعيد + التحصيل المعرّض
+  const kl = ['للمتابعة (فريد)', 'أوردر متأخر (الشركة)', 'خدمة عملاء (قبل حد الشركة)', 'حالة فقط',
+    'أوردر/خدمة: لم يُبلَّغ بعد', 'أوردر/خدمة: اتبلّغ', 'متكرر بعد التبليغ', 'التحصيل المعرّض (ج.م)'];
   const kf = [
-    '=IFERROR(INDIRECT("\'"&$B$3&"\'!AA1"),0)', '=IFERROR(COUNTA(' + T('B') + '),0)',
-    '=IFERROR(COUNTIF(' + T('Q') + ',"*حالة*"),0)', '=IFERROR(COUNTIF(' + T('Q') + ',"*أوردر*"),0)',
-    '=IFERROR(COUNTIF(' + T('Q') + ',"*خدمة*"),0)', '=IFERROR(COUNTIF(' + T('V') + ',"?*"),0)',
-    '=IFERROR(F6/B6,0)', '=COUNTA(Repeated_Orders!A$2:A$20000)'];
+    '=IFERROR(COUNTA(' + T('B') + '),0)',
+    '=IFERROR(COUNTIF(' + T('Q') + ',"*أوردر*"),0)',
+    '=IFERROR(COUNTIF(' + T('Q') + ',"*خدمة*"),0)',
+    '=IFERROR(COUNTIF(' + T('Q') + ',"حالة"),0)',
+    '=B6+C6-F6',
+    '=IFERROR(COUNTIFS(' + T('Q') + ',"*أوردر*",' + T('U') + ',"?*")+COUNTIFS(' + T('Q') + ',"*خدمة*",' + T('U') + ',"?*"),0)',
+    '=COUNTA(Repeated_Orders!A$2:A$20000)',
+    '=IFERROR(SUMIF(' + T('Q') + ',"*أوردر*",' + T('I') + ')+SUMIF(' + T('Q') + ',"*خدمة*",' + T('I') + '),0)'];
   kl.forEach((l, i) => { put(5, i + 1, l); put(6, i + 1, kf[i], true); });
-  put(7, 1, 'الشحنة قد تظهر في أكثر من نوع (مثلاً حالة + تبليغ خدمة عملاء)، فمجموع الأنواع أكبر من "للمتابعة (فريد)". "تم التعامل" = شحنة سُجِّل لها إجراء. "أوردرات متكررة" تخص آخر تحديث.');
+    put(7, 1, 'الأنواع الثلاثة (أوردر الشركة / خدمة العملاء / حالة فقط) لا تتداخل، ومجموعها = للمتابعة. الشحنة التي تجمع أوردراً وحالة تُحسب أوردراً. "لم يُبلَّغ بعد" = أوردر أو خدمة عملاء بلا نوع تبليغ مسجل. التحصيل المعرّض = مجموع مبلغ التحصيل لأوردرات الشركة وخدمة العملاء.');
+
   put(8, 1, 'أداء الفروع');
   ['الفرع', 'الإقليم', 'إجمالي الشحنات', 'حالة متأخرة', 'أوردر متأخر (الشركة)', 'تبليغ خدمة عملاء', 'للمتابعة (فريد)', 'نسبة المتابعة', 'تم التعامل', 'نسبة التغطية']
     .forEach((h, i) => put(9, i + 1, h));
@@ -689,7 +699,6 @@ function buildDashboard_(dash, hist) {
   const kl = dash.getRange('A5:H5').setFontWeight('bold').setBackground('#D9E2F3').setHorizontalAlignment('center').setWrap(true);
   dash.setRowHeight(5, 32);
   dash.getRange('A6:H6').setFontWeight('bold').setFontSize(16).setFontColor(HF).setHorizontalAlignment('center').setNumberFormat('#,##0');
-  dash.getRange('G6').setNumberFormat('0.0%');
   dash.setRowHeight(6, 30);
   dash.getRange('A7').setFontStyle('italic').setFontColor('#7F7F7F').setFontSize(9);
   ['A8', 'A41', 'A47'].forEach(a => dash.getRange(a).setFontWeight('bold').setFontSize(13).setFontColor(HF));
