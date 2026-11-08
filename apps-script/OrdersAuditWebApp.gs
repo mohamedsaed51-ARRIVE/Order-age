@@ -39,7 +39,11 @@ function doGet(e) {
   });
   rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.branch < b.branch ? -1 : 1)));
 
-  return oaJson_({ generated: new Date().toISOString(), rows: rows, statuses: statuses, repeated: oaRepeated_(ss), note: cachedAny ? 'cached' : '' });
+  return oaJson_({
+    generated: new Date().toISOString(), rows: rows, statuses: statuses, repeated: oaRepeated_(ss), note: cachedAny ? 'cached' : '',
+    tabs: tabs.map(t => t.name),                       // تابات الأيام التي وُجدت (للتشخيص)
+    sheets: ss.getSheets().map(sh => sh.getName())     // أسماء كل الأوراق (للتشخيص فقط)
+  });
 }
 
 function oaJson_(o) {

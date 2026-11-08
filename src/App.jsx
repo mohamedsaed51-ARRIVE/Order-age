@@ -18,7 +18,7 @@ function useData(url, refreshMin, demo) {
     set((p) => ({ ...p, status: p.data.rows.length ? 'refreshing' : 'loading' }));
     fetch(u).then((r) => r.json()).then((j) => {
       if (j.error) throw new Error(j.error);
-      set({ status: 'ok', data: { rows: (j.rows || []).map(withRates), statuses: j.statuses || [], repeated: j.repeated || [] }, at: new Date(), generated: j.generated, note: j.note });
+      set({ status: 'ok', data: { rows: (j.rows || []).map(withRates), statuses: j.statuses || [], repeated: j.repeated || [] }, at: new Date(), generated: j.generated, note: j.note, meta: { hasRows: Array.isArray(j.rows), keys: Object.keys(j), tabs: j.tabs, sheets: j.sheets } });
     }).catch((e) => set((p) => ({ ...p, status: 'error', msg: String(e.message || e) })));
   }, [url, demo]);
   useEffect(() => { run(); }, [run]);
@@ -47,7 +47,7 @@ export default function App() {
   const [demoOn, setDemoOn] = useState(() => new URLSearchParams(location.search).get('demo') === '1');
   const [showSet, setShowSet] = useState(false);
   const url = cfg.url || ENV_URL || '';
-  const { status, data, at, msg, generated, note, reload } = useData(url, cfg.refreshMin, demoOn);
+  const { status, data, at, msg, generated, note, meta, reload } = useData(url, cfg.refreshMin, demoOn);
   const { rows, statuses, repeated } = data;
 
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); saveCfg('oa_theme', theme); }, [theme]);
@@ -113,7 +113,24 @@ export default function App() {
   }
   if (status === 'loading') return <>{header}{modal}<div className="empty muted">جارٍ تحميل البيانات…</div></>;
   if (status === 'error' && !rows.length) return <>{header}{modal}<div className="empty"><h2 className="bad">تعذر تحميل البيانات</h2><p>{msg}</p><button className="btn" onClick={() => reload()}>إعادة المحاولة الآن</button></div></>;
-  if (!rows.length) return <>{header}{modal}<div className="empty"><p>لا توجد بيانات بعد. شغّل «تحديث» في الشيت لإنشاء تاب اليوم.</p></div></>;
+  if (!rows.length) {
+    const m = meta || {};
+    let why = 'الويب آب رد بنجاح لكن بدون أي صفوف.';
+    let todo = 'في الشيت: الصق تصدير اليوم في Raw_Daily ثم من القائمة «الأوديت اليومي» اختر «تحديث» لإنشاء تاب باسم تاريخ اليوم (مثل 2026-11-04).';
+    if (m.hasRows === false) {
+      why = 'الرد ليس بصيغة Order Age (لا يحتوي على rows). غالبًا الويب آب منشور من نسخة قديمة أو من كود آخر.';
+      todo = 'تأكد من لصق OrdersAuditWebApp.gs (أو الملف الموحد) ثم: نشر ← إدارة عمليات النشر ← تعديل ← إصدار جديد ← نشر.';
+    } else if (Array.isArray(m.tabs) && !m.tabs.length) {
+      why = 'الويب آب لم يجد أي تاب يوم (اسمه بصيغة yyyy-mm-dd).';
+    } else if (m.hasRows && !Array.isArray(m.tabs)) {
+      todo += ' وإن كان لديك تاب يوم بالفعل فغالبًا نسخة النشر قديمة: اعمل «إصدار جديد» للنشر بعد لصق آخر كود.';
+    }
+    return (<>{header}{modal}<div className="empty"><h2>لا توجد بيانات للعرض</h2>
+      <p>{why}</p><p>{todo}</p>
+      <details style={{ marginTop: 10 }}><summary>تفاصيل تشخيصية</summary>
+        <pre>{JSON.stringify({ keys: m.keys, tabs: m.tabs, sheets: m.sheets, generated }, null, 1)}</pre></details>
+      <p><button className="btn" onClick={() => reload()}>إعادة التحميل</button> <button className="btn sec" onClick={() => setDemoOn(true)}>معاينة ببيانات تجريبية</button></p></div></>);
+  }
 
   /* ---------- حسابات ---------- */
   const board = snapRows.map((r) => {
