@@ -15,7 +15,7 @@
  *   عمر الحالة   = تاريخ التقرير − تاريخ آخر حالة   ← مقارنة بحد الحالة (لكل حالة شحنة)
  *   عمر الأوردر  = تاريخ التقرير − تاريخ البيك أب    ← مقارنة بحد الفرع (إقليم الفرع)
  *   أوردر متأخر (الشركة)   : عمر الأوردر ≥ حد الشركة للفرع
- *   تبليغ خدمة العملاء     : عمر الأوردر ≥ حد خدمة العملاء للفرع
+ *   تبليغ خدمة العملاء     : حد خدمة العملاء ≤ عمر الأوردر < حد الشركة (يختفي عند تجاوز حد الشركة)
  *   التأخر يبدأ عند الحد نفسه (≥) إذا كانت Rules!B8 = "نعم"، وعند تجاوزه (>) إذا "لا".
  */
 
@@ -272,7 +272,8 @@ function computeWorklist_(rows, cols, rules, reportDay) {
     }
 
     const coLate = isLate_(oAge, coThr, rules.ge);
-    const csLate = isLate_(oAge, csThr, rules.ge);
+    // تبليغ خدمة العملاء نافذة قبل حد الشركة فقط: يختفي بمجرد أن يصبح الأوردر متأخراً للشركة
+    const csLate = !coLate && isLate_(oAge, csThr, rules.ge);
     const cLate = sRule.include && isLate_(cAge, sRule.thr, rules.ge);
     if (!coLate && !csLate && !cLate) return;
 
