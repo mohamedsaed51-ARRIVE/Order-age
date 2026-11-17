@@ -43,7 +43,7 @@ function tableRec(D, R) {
 }
 const groupBy = (rows, f) => { const m = new Map(); rows.forEach((r) => { const k = f(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r); }); return [...m]; };
 const emptyDoc = (title, why) => ({ title, footer: `إدارة المراجعة – ARRIVE  |  ${title}`, per: '', blocks: [{ t: 'head', title, l1: '—', l2: AUTHOR }, { t: 'h', text: 'لا توجد بيانات' }, { t: 'p', text: why }] });
-const defsNote = 'الأنواع الثلاثة (أوردر الشركة / خدمة العملاء / حالة فقط) لا تتداخل: الشحنة التي تجمع أوردرًا وحالة تُحسب أوردرًا. «خدمة العملاء» نافذة بين حد خدمة العملاء وحد الشركة وتختفي بعد تجاوز حد الشركة. «لم يُبلَّغ بعد» = أوردر أو خدمة عملاء بلا نوع تبليغ مسجل. نسبة الأوردرات المتأخرة = (أوردر + خدمة عملاء) ÷ شحنات التصدير.';
+const defsNote = 'الأنواع الثلاثة (أوردر الشركة / خدمة العملاء / تأخير الحالة) لا تتداخل: الشحنة التي تجمع أوردرًا وحالة تُحسب أوردرًا. «خدمة العملاء» نافذة بين حد خدمة العملاء وحد الشركة وتختفي بعد تجاوز حد الشركة. «لم يُبلَّغ بعد» = أوردر أو خدمة عملاء بلا نوع تبليغ مسجل. نسبة الأوردرات المتأخرة = (أوردر + خدمة عملاء) ÷ شحنات التصدير.';
 
 /* ======================= 1) التقرير التنفيذي اليومي ======================= */
 export function execReport(ctx) {
@@ -63,20 +63,19 @@ export function execReport(ctx) {
 
   D.h('المؤشرات الرئيسية');
   B.push({ t: 'kpis', cards: [
-    { label: 'شحنات للمتابعة (فريد)', value: N(T.followup), pct: P(T.followup, T.total), sub: `من ${N(T.total)} شحنة في التصدير`, tone: 'navy' },
+    { label: 'شحنات للمتابعة', value: N(T.followup), pct: P(T.followup, T.total), sub: `من ${N(T.total)} شحنة في التصدير`, tone: 'navy' },
     { label: 'أوردر متأخر (الشركة)', value: N(T.order_late), pct: P(T.order_late, T.total), sub: `متوسط العمر ${D1(T.avg_oage)} يوم | أقدم ${N(T.max_oage)} يوم`, tone: 'red' },
     { label: 'خدمة عملاء (قبل حد الشركة)', value: N(T.cs_late), pct: P(T.cs_late, T.total), sub: 'بين حد خدمة العملاء وحد الشركة', tone: 'teal' },
-    { label: 'حالة فقط', value: N(T.case_only), pct: P(T.case_only, T.total), sub: `منها ${N(T.case_first)} عند الحد نفسه (أول يوم)`, tone: 'navy' }] });
+    { label: 'تأخير الحالة', value: N(T.case_only), pct: P(T.case_only, T.total), sub: `منها ${N(T.case_first)} عند الحد نفسه (أول يوم)`, tone: 'navy' }] });
   B.push({ t: 'kpis', cards: [
     { label: 'أوردر/خدمة لم يُبلَّغ بعد', value: N(T.unnotified), pct: P(T.unnotified, T.oc), sub: `من ${N(T.oc)} مطلوب تبليغها`, tone: 'red' },
     { label: 'أوردر/خدمة اتبلّغ', value: N(T.notified_oc), pct: P(T.notified_oc, T.oc), sub: 'نسبة التبليغ', tone: 'teal' },
-    { label: 'أوردرات متكررة (آخر تحديث)', value: N(rep.count), sub: `${N(rep.notified)} اتبلّغ | ${N(rep.not_notified)} لم يُبلَّغ`, tone: 'navy' },
-    { label: 'التحصيل المعرّض (ج.م)', value: N(T.cod_oc), sub: `لأوردرات الشركة وخدمة العملاء | تحصيل كل المتابعة ${N(T.cod)}`, tone: 'red' }] });
+    { label: 'أوردرات متكررة (آخر تحديث)', value: N(rep.count), sub: `${N(rep.notified)} اتبلّغ | ${N(rep.not_notified)} لم يُبلَّغ`, tone: 'navy' }] });
   B.push({ t: 'note', text: defsNote });
 
   D.h('التوزيع حسب الإقليم');
   const regs = groupBy(today, (r) => r.region || 'غير محدد').map(([k, v]) => [k, sum(v)]).sort((a, b) => b[1].rate - a[1].rate);
-  B.push({ t: 'table', w: [24, 11, 11, 12, 11, 12, 15], cols: ['الإقليم', 'الشحنات', 'أوردر الشركة', 'خدمة عملاء', 'حالة فقط', 'للمتابعة', 'نسبة الأوردرات المتأخرة'],
+  B.push({ t: 'table', w: [24, 11, 11, 12, 11, 12, 15], cols: ['الإقليم', 'الشحنات', 'أوردر الشركة', 'خدمة عملاء', 'تأخير الحالة', 'للمتابعة', 'نسبة الأوردرات المتأخرة'],
     rows: [...regs.map(([k, s]) => ({ c: [k, N(s.total), N(s.order_late), N(s.cs_late), N(s.case_only), N(s.followup), P(s.oc, s.total)], hl: s.rate > th.bad ? 'red' : null })),
       { c: ['الإجمالي', N(T.total), N(T.order_late), N(T.cs_late), N(T.case_only), N(T.followup), P(T.oc, T.total)], total: 1 }] });
   B.push({ t: 'note', text: `المظلل: إقليم نسبة الأوردرات المتأخرة فيه أعلى من ${th.bad}% (حد للعرض وليس سياسة معتمدة).` });
@@ -112,7 +111,7 @@ export function execReport(ctx) {
 
   D.h('المقارنة باليوم السابق');
   if (Pv) {
-    const items = [['شحنات للمتابعة', 'followup', true], ['أوردر متأخر (الشركة)', 'order_late', true], ['خدمة عملاء', 'cs_late', true], ['حالة فقط', 'case_only', true],
+    const items = [['شحنات للمتابعة', 'followup', true], ['أوردر متأخر (الشركة)', 'order_late', true], ['خدمة عملاء', 'cs_late', true], ['تأخير الحالة', 'case_only', true],
       ['لم يُبلَّغ بعد', 'unnotified', true], ['نسبة التبليغ', 'noti', false, true], ['التحصيل المعرّض (ج.م)', 'cod_oc', true]];
     B.push({ t: 'table', w: [30, 17, 17, 16, 20], cols: ['المؤشر', dmy(prevD), per, 'الفرق', 'الاتجاه'], rows: items.map(([l, k, lb, pp]) => {
       const d = T[k] - Pv[k]; const better = lb ? d < 0 : d > 0;
@@ -124,7 +123,7 @@ export function execReport(ctx) {
   const Q = [];
   const gaps = []; for (let k = 1; k < dates.length; k++) if (dates[k] <= day) gaps.push(...missingWorkDays(dates[k - 1], dates[k]));
   if (gaps.length) Q.push(['أيام عمل بلا تاب أوديت', `لا توجد بيانات للأيام: ${gaps.slice(-6).map(dmy).join('، ')} (الجمعة إجازة ولا تُحسب)`, 'لم تُحتسب']);
-  if (T.case_only && T.case_first / T.case_only >= 0.5) Q.push(['تأخر الحالة عند الحد نفسه', `${N(T.case_first)} من ${N(T.case_only)} شحنة «حالة فقط» (${P(T.case_first, T.case_only)}) عمر حالتها يساوي حدها بالضبط، أي أول يوم تأخر`, 'عُرضت كما هي؛ يُراجع الحد مع SOP']);
+  if (T.case_only && T.case_first / T.case_only >= 0.5) Q.push(['تأخر الحالة عند الحد نفسه', `${N(T.case_first)} من ${N(T.case_only)} شحنة «تأخير الحالة» (${P(T.case_first, T.case_only)}) عمر حالتها يساوي حدها بالضبط، أي أول يوم تأخر`, 'عُرضت كما هي؛ يُراجع الحد مع SOP']);
   if (!sd.length) Q.push(['بيانات الحالات', 'غير متاحة لهذا اليوم (تُجمّع لآخر 14 يومًا فقط)', 'جدول الحالات فارغ']);
   Q.push(['تجميع الأعداد', 'كل الأرقام مجمّعة (يوم × فرع) من تابات الشيت، ولا تتضمن أرقام بوالص أو عملاء أو مناديب', 'بالتصميم']);
   Q.push(['بداية التأخر', 'التأخر يبدأ عند الحد نفسه (≥) حسب إعداد Rules!B8', 'يتغير بتغيير الإعداد في الشيت']);
@@ -140,7 +139,7 @@ export function execReport(ctx) {
   if (rep.not_notified > 0) R.push([`${N(rep.not_notified)} أوردر متكرر لم يُبلَّغ عنه`, 'تبليغ فوري وتصعيد للمسؤول المباشر', 'عالية']);
   else if (rep.count > 0) R.push([`${N(rep.count)} أوردر متكرر رغم التبليغ`, 'تصعيد للإدارة بدل تكرار التبليغ نفسه', 'متوسطة']);
   if (T.oc && T.noti < covMin) R.push([`نسبة تبليغ الأوردر وخدمة العملاء ${P(T.notified_oc, T.oc)} أقل من ${covMin}%`, 'رفع نسبة التبليغ اليومية وتسجيلها أولًا بأول', 'متوسطة']);
-  if (T.case_only && T.case_first / T.case_only >= 0.5) R.push([`${P(T.case_first, T.case_only)} من «حالة فقط» عند الحد نفسه (أول يوم)`, 'مراجعة حدود عمر الحالة في SOP للحالات القصيرة (يوم واحد) قبل تعميمها', 'متوسطة']);
+  if (T.case_only && T.case_first / T.case_only >= 0.5) R.push([`${P(T.case_first, T.case_only)} من «تأخير الحالة» عند الحد نفسه (أول يوم)`, 'مراجعة حدود عمر الحالة في SOP للحالات القصيرة (يوم واحد) قبل تعميمها', 'متوسطة']);
   tableRec(D, R);
   return D.done();
 }
@@ -173,7 +172,7 @@ export function branchesReport(ctx) {
 
   D.h('ترتيب الفروع (متوسط يومي)');
   const brs = groupBy(cur, (r) => r.branch).map(([k, v]) => { const s = sum(v); const d = v.length; return { k, region: v[0].region || '—', s, d, over: v.filter((r) => r.rate > th.bad).length }; }).sort((a, b) => b.s.rate - a.s.rate);
-  B.push({ t: 'table', w: [14, 15, 8, 9, 9, 9, 10, 10, 8, 8], cols: ['الفرع', 'الإقليم', 'الأيام', 'متوسط الشحنات', 'متوسط أوردر الشركة', 'متوسط خدمة عملاء', 'متوسط حالة فقط', 'نسبة الأوردرات المتأخرة', 'نسبة التبليغ', 'أيام فوق الحد'],
+  B.push({ t: 'table', w: [14, 15, 8, 9, 9, 9, 10, 10, 8, 8], cols: ['الفرع', 'الإقليم', 'الأيام', 'متوسط الشحنات', 'متوسط أوردر الشركة', 'متوسط خدمة عملاء', 'متوسط تأخير الحالة', 'نسبة الأوردرات المتأخرة', 'نسبة التبليغ', 'أيام فوق الحد'],
     rows: [...brs.map(({ k, region, s, d, over }) => ({ c: [k, region, N(d), N(Math.round(s.total / d)), D1(s.order_late / d), D1(s.cs_late / d), D1(s.case_only / d), P(s.oc, s.total), P(s.notified_oc, s.oc), N(over)], hl: s.rate > th.bad ? 'red' : null })),
       { c: ['الإجمالي (متوسط يومي)', '', N(nd), N(Math.round(dayAvg('total'))), D1(dayAvg('order_late')), D1(dayAvg('cs_late')), D1(dayAvg('case_only')), P(tot.oc, tot.total), P(tot.notified_oc, tot.oc), ''], total: 1 }] });
   B.push({ t: 'note', text: `نسبة الأوردرات المتأخرة = (أوردر + خدمة عملاء) ÷ شحنات التصدير على مستوى الفترة. المظلل: الفروع فوق ${th.bad}%. «أيام فوق الحد» = عدد الأيام التي تجاوزت فيها نسبة الفرع ${th.bad}%.` });
@@ -190,7 +189,7 @@ export function branchesReport(ctx) {
 
   D.h('التوزيع الأسبوعي');
   const wks = groupBy(cur, (r) => weekStart(r.date)).sort((a, b) => (a[0] < b[0] ? -1 : 1));
-  B.push({ t: 'table', w: [22, 10, 14, 14, 14, 14, 12], cols: ['الأسبوع (يبدأ السبت)', 'الأيام', 'متوسط أوردر الشركة', 'متوسط خدمة عملاء', 'متوسط حالة فقط', 'نسبة الأوردرات المتأخرة', 'نسبة التبليغ'],
+  B.push({ t: 'table', w: [22, 10, 14, 14, 14, 14, 12], cols: ['الأسبوع (يبدأ السبت)', 'الأيام', 'متوسط أوردر الشركة', 'متوسط خدمة عملاء', 'متوسط تأخير الحالة', 'نسبة الأوردرات المتأخرة', 'نسبة التبليغ'],
     rows: wks.map(([k, v]) => { const s = sum(v); const d = new Set(v.map((r) => r.date)).size; return { c: [`من ${dmy(k)}`, N(d), D1(s.order_late / d), D1(s.cs_late / d), D1(s.case_only / d), P(s.oc, s.total), P(s.notified_oc, s.oc)] }; }) });
   B.push({ t: 'note', text: 'الأسبوع من السبت إلى الجمعة، وتاريخ الأسبوع = أول يوم فيه. الأسبوع الأول والأخير قد يكونان جزئيين حسب حدود الفترة.' });
 

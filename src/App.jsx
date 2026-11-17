@@ -37,6 +37,7 @@ function Delta({ cur, prev, lowerBetter, pp }) {
   const c = Math.abs(d) < 0.05 ? 'muted' : (lowerBetter ? d < 0 : d > 0) ? 'ok' : 'bad';
   return <span className={'d ' + c}><span dir="ltr">{pp ? sgn(d) + ' نقطة' : (d > 0 ? '+' : '') + fi(d)}</span> عن اليوم السابق</span>;
 }
+const pctT = (t, k) => (N(t.total) ? (N(t[k]) / N(t.total)) * 100 : 0);
 const Badge = ({ lv }) => <span className={'chip ' + LEVELS[lv].cls}><i className={'fa-solid ' + LEVELS[lv].icon} />{LEVELS[lv].label}</span>;
 const Heading = ({ tag, title, sub }) => (
   <div><div className="section-heading"><span className="tag">{tag}</span><h2>{title}</h2></div>{sub && <p className="section-sub">{sub}</p>}</div>
@@ -87,7 +88,7 @@ export default function App() {
   const reset = () => { setFrom(''); setTo(''); setRegion(''); setSel([]); setQ(''); setPage(0); };
   const exportCsv = () => download('order-age.csv', toCsv(inRange, [
     { h: 'التاريخ', k: 'date' }, { h: 'الفرع', k: 'branch' }, { h: 'الإقليم', k: 'region' }, { h: 'إجمالي الشحنات', k: 'total' },
-    { h: 'أوردر متأخر (الشركة)', k: 'order_late' }, { h: 'خدمة عملاء', k: 'cs_late' }, { h: 'حالة فقط', k: 'case_only' }, { h: 'للمتابعة', k: 'followup' },
+    { h: 'أوردر متأخر (الشركة)', k: 'order_late' }, { h: 'خدمة عملاء', k: 'cs_late' }, { h: 'تأخير الحالة', k: 'case_only' }, { h: 'للمتابعة', k: 'followup' },
     { h: 'اتبلّغ (أوردر/خدمة)', k: 'notified_oc' }, { h: 'لم يُبلَّغ', k: 'unnotified' }, { h: 'نسبة الأوردرات المتأخرة %', k: 'rate' }, { h: 'نسبة التبليغ %', k: 'noti' },
     { h: 'تحصيل معرّض', k: 'cod_oc' }, { h: 'أولوية عالية', k: 'high' }, { h: 'متكرر', k: 'repeated' }]));
   const fullscreen = () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch { /* ignore */ } };
@@ -199,7 +200,7 @@ export default function App() {
   if (T.oc) insights.push(`أعلى 3 فروع في (أوردر + خدمة عملاء) تمثل ${top3Share.toFixed(0)}% من الإجمالي.`);
   if (T.order_late) insights.push(`متوسط عمر الأوردر المتأخر ${T.avg_oage.toFixed(1)} يوم، وأقدم أوردر ${fi(T.max_oage)} يوم.`);
   if (regAgg.length > 1) { const w = [...regAgg].sort((a, b) => b.rate - a.rate)[0]; insights.push(`أعلى إقليم في نسبة الأوردرات المتأخرة: ${w.region} (${fp(w.rate)}).`); }
-  if (T.case_only && T.case_first / T.case_only >= 0.5) insights.push(`${fp(T.case_first / T.case_only * 100)} من «حالة فقط» عمر حالتها يساوي حدها بالضبط (أول يوم)، فراجع حدود الحالات.`);
+  if (T.case_only && T.case_first / T.case_only >= 0.5) insights.push(`${fp(T.case_first / T.case_only * 100)} من «تأخير الحالة» عمر حالتها يساوي حدها بالضبط (أول يوم)، فراجع حدود الحالات.`);
   if (riser && riser.d < 0) insights.push(`أكبر تحسن: ${riser.branch} (${sgn(riser.d)} نقطة).`);
   if (dropper && dropper.d > 0) insights.push(`أكبر تراجع: ${dropper.branch} (${sgn(dropper.d)} نقطة).`);
   if (stTop[0]) insights.push(`أكثر حالة تأخراً: ${stTop[0][0]} (${fi(stTop[0][1])} شحنة).`);
@@ -215,7 +216,7 @@ export default function App() {
     worst.map((w, i) => ({ label: w.branch, data: rangeDates.map((d) => { const r = inRange.find((x) => x.date === d && x.branch === w.branch); return r ? +r.rate.toFixed(2) : null; }), borderColor: lineCols[i], backgroundColor: lineCols[i], tension: .25, borderWidth: 2, pointRadius: 2, spanGaps: true })));
 
   /* جدول السجل */
-  const histCols = [['date', 'التاريخ'], ['branch', 'الفرع'], ['region', 'الإقليم'], ['total', 'الشحنات'], ['order_late', 'أوردر'], ['cs_late', 'خدمة عملاء'], ['case_only', 'حالة فقط'], ['unnotified', 'لم يُبلَّغ'], ['noti', 'التبليغ'], ['rate', 'نسبة الأوردرات المتأخرة'], ['cod_oc', 'تحصيل معرّض']];
+  const histCols = [['date', 'التاريخ'], ['branch', 'الفرع'], ['region', 'الإقليم'], ['total', 'الشحنات'], ['order_late', 'أوردر'], ['cs_late', 'خدمة عملاء'], ['case_only', 'تأخير الحالة'], ['unnotified', 'لم يُبلَّغ'], ['noti', 'التبليغ'], ['rate', 'نسبة الأوردرات المتأخرة'], ['cod_oc', 'تحصيل معرّض']];
   const txt = ['branch', 'region', 'date'];
   const hist = [...inRange].sort((a, b) => { const x = txt.includes(sort.k) ? a[sort.k] : N(a[sort.k]); const y = txt.includes(sort.k) ? b[sort.k] : N(b[sort.k]); return (x > y ? 1 : x < y ? -1 : 0) * sort.dir; });
   const pages = Math.max(1, Math.ceil(hist.length / PAGE));
@@ -274,16 +275,18 @@ export default function App() {
           </div>
         </div>
 
-        <Heading tag="اليوم" title={`الصورة العامة — ‎${S}‎`} sub="الأنواع الثلاثة لا تتداخل: الشحنة تُحسب في نوع واحد (أوردر الشركة، ثم خدمة العملاء، ثم حالة فقط)، ومجموعها = للمتابعة." />
+        <Heading tag="اليوم" title={`الصورة العامة — ‎${S}‎`} sub="الأنواع الثلاثة لا تتداخل: الشحنة تُحسب في نوع واحد (أوردر الشركة، ثم خدمة العملاء، ثم تأخير الحالة)، ومجموعها = للمتابعة." />
         <div className="kpi-row">
-          <div className="kpi"><span className="l">للمتابعة (فريد)</span><span className="v">{fi(T.followup)}</span>
-            <span className="d muted">{fp(T.fu_rate)} من {fi(T.total)} شحنة</span><br /><Delta cur={T.followup} prev={P && P.followup} lowerBetter /></div>
-          <div className="kpi accent-bad"><span className="l">أوردر متأخر (الشركة)</span><span className="v">{fi(T.order_late)}</span>
-            <span className="d muted">{T.order_late ? `متوسط العمر ${T.avg_oage.toFixed(1)} يوم · أقدم ${fi(T.max_oage)} يوم` : 'لا يوجد'}</span><br /><Delta cur={T.order_late} prev={P && P.order_late} lowerBetter /></div>
-          <div className="kpi accent-teal"><span className="l">خدمة عملاء (قبل حد الشركة)</span><span className="v">{fi(T.cs_late)}</span>
-            <span className="d muted">بين حد خدمة العملاء وحد الشركة</span><br /><Delta cur={T.cs_late} prev={P && P.cs_late} lowerBetter /></div>
-          <div className="kpi accent-warn"><span className="l">حالة فقط</span><span className="v">{fi(T.case_only)}</span>
-            <span className="d muted">منها {fi(T.case_first)} عند الحد نفسه (أول يوم)</span><br /><Delta cur={T.case_only} prev={P && P.case_only} lowerBetter /></div>
+          <div className="kpi"><span className="l">للمتابعة</span><span className="v">{fi(T.followup)}</span>
+            <span className="d muted">{fp(T.fu_rate)} من {fi(T.total)} شحنة (كل الشحنات المتأخرة بما فيها المتكررة)</span><br /><Delta cur={T.followup} prev={P && P.followup} lowerBetter /></div>
+          <div className="kpi accent-bad"><span className="l">أوردر متأخر (الشركة)</span><span className="v">{fp(pctT(T, 'order_late'))}</span>
+            <span className="d muted">{fi(T.order_late)} شحنة من {fi(T.total)}</span><br />
+            <span className="d muted">{T.order_late ? `متوسط العمر ${T.avg_oage.toFixed(1)} يوم · أقدم ${fi(T.max_oage)} يوم` : 'لا يوجد'}</span><br /><Delta cur={pctT(T, 'order_late')} prev={P && pctT(P, 'order_late')} lowerBetter pp /></div>
+          <div className="kpi accent-teal"><span className="l">خدمة عملاء (قبل حد الشركة)</span><span className="v">{fp(pctT(T, 'cs_late'))}</span>
+            <span className="d muted">{fi(T.cs_late)} شحنة من {fi(T.total)}</span><br /><Delta cur={pctT(T, 'cs_late')} prev={P && pctT(P, 'cs_late')} lowerBetter pp /></div>
+          <div className="kpi accent-warn"><span className="l">تأخير الحالة</span><span className="v">{fp(pctT(T, 'case_only'))}</span>
+            <span className="d muted">{fi(T.case_only)} شحنة من {fi(T.total)}</span><br />
+            <span className="d muted">منها {fi(T.case_first)} عند الحد نفسه (أول يوم)</span><br /><Delta cur={pctT(T, 'case_only')} prev={P && pctT(P, 'case_only')} lowerBetter pp /></div>
         </div>
         <Heading tag="تبليغ" title="التبليغ والتصعيد" sub="أوردر الشركة وخدمة العملاء هما المطلوب تبليغهما؛ «لم يُبلَّغ بعد» = بلا نوع تبليغ مسجل في تاب اليوم." />
         <div className="kpi-row">
@@ -293,13 +296,11 @@ export default function App() {
             <span className="d muted">{fi(T.notified_oc)} اتبلّغ من {fi(T.oc)}</span><br /><Delta cur={T.noti} prev={P && P.noti} lowerBetter={false} pp /></div>
           <div className="kpi"><span className="l">أوردرات متكررة (آخر تحديث)</span><span className="v">{fi(repAgg.count)}</span>
             <span className="d muted">{fi(repAgg.notified)} اتبلّغ · {fi(repAgg.not_notified)} لم يُبلَّغ</span></div>
-          <div className="kpi accent-bad"><span className="l">التحصيل المعرّض (ج.م)</span><span className="v">{fi(T.cod_oc)}</span>
-            <span className="d muted">لأوردرات الشركة وخدمة العملاء</span><br /><Delta cur={T.cod_oc} prev={P && P.cod_oc} lowerBetter /></div>
         </div>
 
         <Heading tag="أداء" title="صحة الفروع" sub={`حسب نسبة الأوردرات المتأخرة = (أوردر + خدمة عملاء) ÷ شحنات الفرع، الأقل أفضل: ممتاز ≤ ${th.excellent}% — جيد ≤ ${th.good}% — يحتاج انتباه ≤ ${th.bad}% — حرج أعلى من ذلك (حدود للعرض وليست سياسة معتمدة)`} />
         <div className="panel tscroll"><table>
-          <thead><tr><th>الفرع</th><th>الإقليم</th><th>الشحنات</th><th>أوردر</th><th>خدمة عملاء</th><th>حالة فقط</th><th>لم يُبلَّغ</th><th>التبليغ</th><th>نسبة الأوردرات المتأخرة</th><th>التغيير (نقطة)</th><th>تحصيل معرّض</th><th>المستوى</th></tr></thead>
+          <thead><tr><th>الفرع</th><th>الإقليم</th><th>الشحنات</th><th>أوردر</th><th>خدمة عملاء</th><th>تأخير الحالة</th><th>لم يُبلَّغ</th><th>التبليغ</th><th>نسبة الأوردرات المتأخرة</th><th>التغيير (نقطة)</th><th>تحصيل معرّض</th><th>المستوى</th></tr></thead>
           <tbody>{board.length === 0 && <tr><td colSpan={12} className="muted">لا توجد بيانات</td></tr>}{board.map((r) => (
             <tr key={r.branch}><td>{r.branch}</td><td className="muted">{r.region}</td><td className="n">{fi(r.total)}</td><td className="n">{fi(r.order_late)}</td><td className="n">{fi(r.cs_late)}</td><td className="n">{fi(r.case_only)}</td>
               <td className={'n ' + (r.unnotified ? 'bad' : '')}>{fi(r.unnotified)}</td><td className="n">{r.oc ? fp(r.noti) : '—'}</td><td className="n"><b>{fp(r.rate)}</b></td>
@@ -313,13 +314,13 @@ export default function App() {
             <div className="chart-wrap tall"><ChartBox type="line" theme={theme} labels={rangeDates} datasets={trendSets} pct /></div></div>
           <div className="panel"><h3>اتجاه نسبة التبليغ</h3><p className="panel-sub">أوردر/خدمة اتبلّغ ÷ المطلوب تبليغها</p>
             <div className="chart-wrap tall"><ChartBox type="line" theme={theme} legend={false} labels={rangeDates} datasets={[{ label: 'التبليغ', data: notiTrend, borderColor: cv('--status-success'), backgroundColor: cv('--status-success'), tension: .25, borderWidth: 3, pointRadius: 3 }]} pct /></div></div>
-          <div className="panel"><h3>أنواع التأخر حسب الفرع</h3><p className="panel-sub">أوردر الشركة / خدمة العملاء / حالة فقط (بدون تداخل)</p>
+          <div className="panel"><h3>أنواع التأخر حسب الفرع</h3><p className="panel-sub">أوردر الشركة / خدمة العملاء / تأخير الحالة (بدون تداخل)</p>
             <div className="chart-wrap tall"><ChartBox type="bar" theme={theme} horizontal stacked labels={byOc.map((r) => r.branch)} datasets={[
               { label: 'أوردر (الشركة)', data: byOc.map((r) => N(r.order_late)), backgroundColor: cv('--status-violation') },
               { label: 'خدمة عملاء', data: byOc.map((r) => N(r.cs_late)), backgroundColor: cv('--chart-2') },
-              { label: 'حالة فقط', data: byOc.map((r) => N(r.case_only)), backgroundColor: cv('--status-action') }]} /></div></div>
+              { label: 'تأخير الحالة', data: byOc.map((r) => N(r.case_only)), backgroundColor: cv('--status-action') }]} /></div></div>
           <div className="panel"><h3>توزيع أنواع التأخر</h3><p className="panel-sub">إجمالي {S}</p>
-            <div className="chart-wrap"><ChartBox type="doughnut" theme={theme} labels={['أوردر (الشركة)', 'خدمة عملاء', 'حالة فقط']} datasets={[{ data: [T.order_late, T.cs_late, T.case_only], backgroundColor: [cv('--status-violation'), cv('--chart-2'), cv('--status-action')], borderWidth: 0 }]} /></div></div>
+            <div className="chart-wrap"><ChartBox type="doughnut" theme={theme} labels={['أوردر (الشركة)', 'خدمة عملاء', 'تأخير الحالة']} datasets={[{ data: [T.order_late, T.cs_late, T.case_only], backgroundColor: [cv('--status-violation'), cv('--chart-2'), cv('--status-action')], borderWidth: 0 }]} /></div></div>
           <div className="panel"><h3>لم يُبلَّغ بعد حسب الفرع</h3><p className="panel-sub">أوردر + خدمة عملاء بلا تبليغ مسجل</p>
             <div className="chart-wrap"><ChartBox type="bar" theme={theme} legend={false} labels={byUn.map((r) => r.branch)} datasets={[{ label: 'لم يُبلَّغ', data: byUn.map((r) => r.unnotified), backgroundColor: cv('--status-violation') }]} /></div></div>
           <div className="panel"><h3>نسبة الأوردرات المتأخرة حسب الإقليم</h3><p className="panel-sub">{S}</p>
@@ -373,7 +374,7 @@ export default function App() {
             </div>
             <div style={{ marginTop: 10 }}>
               <div className="cmp-row"><b>المؤشر</b><b className="fi">{cmp.a}</b><b className="fi">{cmp.b}</b></div>
-              {[['إجمالي الشحنات', 'total', false, false], ['للمتابعة', 'followup', true, false], ['أوردر متأخر (الشركة)', 'order_late', true, false], ['خدمة عملاء', 'cs_late', true, false], ['حالة فقط', 'case_only', true, false], ['لم يُبلَّغ بعد', 'unnotified', true, false], ['نسبة التبليغ', 'noti', false, true], ['نسبة الأوردرات المتأخرة', 'rate', true, true], ['التحصيل المعرّض', 'cod_oc', true, false]].map(([l, k, lb, isPct]) => {
+              {[['إجمالي الشحنات', 'total', false, false], ['للمتابعة', 'followup', true, false], ['أوردر متأخر (الشركة)', 'order_late', true, false], ['خدمة عملاء', 'cs_late', true, false], ['تأخير الحالة', 'case_only', true, false], ['لم يُبلَّغ بعد', 'unnotified', true, false], ['نسبة التبليغ', 'noti', false, true], ['نسبة الأوردرات المتأخرة', 'rate', true, true], ['التحصيل المعرّض', 'cod_oc', true, false]].map(([l, k, lb, isPct]) => {
                 const d = B[k] - A[k]; const good = lb ? d < 0 : d > 0;
                 return <div className="cmp-row" key={k}><span>{l}</span><span className="n">{isPct ? fp(A[k]) : fi(A[k])}</span>
                   <span className="n">{isPct ? fp(B[k]) : fi(B[k])} <small className={d === 0 || k === 'total' ? 'muted' : good ? 'ok' : 'bad'} dir="ltr">({isPct ? sgn(d) + ' نقطة' : (d > 0 ? '+' : '') + fi(d)})</small></span></div>;
@@ -394,7 +395,7 @@ export default function App() {
         </div>
 
         <div className="foot">
-          <b>التعريفات:</b> عمر الحالة = تاريخ التقرير − تاريخ آخر حالة، مقارنًا بحد كل حالة شحنة. عمر الأوردر = تاريخ التقرير − تاريخ البيك أب، مقارنًا بحد الشركة وحد خدمة العملاء لفرع العضو؛ و«خدمة العملاء» نافذة من حد خدمة العملاء حتى قبل حد الشركة وتختفي بعده. الأنواع (أوردر الشركة / خدمة العملاء / حالة فقط) لا تتداخل. نسبة الأوردرات المتأخرة = (أوردر + خدمة عملاء) ÷ شحنات الفرع. نسبة التبليغ = (أوردر/خدمة اتبلّغ) ÷ (أوردر + خدمة). التحصيل المعرّض = مبلغ التحصيل لأوردرات الشركة وخدمة العملاء. الحدود في ورقة Rules بالشيت. مستويات الصحة ومقترحات الإجراءات للعرض وتحتاج اعتماد الإدارة.
+          <b>التعريفات:</b> عمر الحالة = تاريخ التقرير − تاريخ آخر حالة، مقارنًا بحد كل حالة شحنة. عمر الأوردر = تاريخ التقرير − تاريخ البيك أب، مقارنًا بحد الشركة وحد خدمة العملاء لفرع العضو؛ و«خدمة العملاء» نافذة من حد خدمة العملاء حتى قبل حد الشركة وتختفي بعده. الأنواع (أوردر الشركة / خدمة العملاء / تأخير الحالة) لا تتداخل. نسبة الأوردرات المتأخرة = (أوردر + خدمة عملاء) ÷ شحنات الفرع. نسبة التبليغ = (أوردر/خدمة اتبلّغ) ÷ (أوردر + خدمة). التحصيل المعرّض = مبلغ التحصيل لأوردرات الشركة وخدمة العملاء. الحدود في ورقة Rules بالشيت. مستويات الصحة ومقترحات الإجراءات للعرض وتحتاج اعتماد الإدارة.
         </div>
       </div>
     </>
