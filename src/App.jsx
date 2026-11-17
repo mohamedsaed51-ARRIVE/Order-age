@@ -278,7 +278,7 @@ export default function App() {
 
         <Heading tag="اليوم" title={`الصورة العامة — ‎${S}‎`} sub="الأنواع الثلاثة لا تتداخل: الشحنة تُحسب في نوع واحد (أوردر الشركة، ثم خدمة العملاء، ثم تأخير الحالة)، ومجموعها = للمتابعة." />
         <div className="kpi-row">
-          <div className="kpi"><span className="l">عدد الشحنات</span><span className="v">{fi(T.followup)}</span>
+          <div className="kpi"><span className="l">إجمالي الشحنات المتأخرة</span><span className="v">{fi(T.followup)}</span>
             <span className="d muted">{fp(T.fu_rate)} من {fi(T.total)} شحنة (كل الشحنات المتأخرة بما فيها المتكررة)</span><br /><Delta cur={T.followup} prev={P && P.followup} lowerBetter /></div>
           <div className="kpi accent-bad"><span className="l">أوردر متأخر (الشركة)</span><span className="v">{fp(pctT(T, 'order_late'))}</span>
             <span className="d muted">{fi(T.order_late)} شحنة من {fi(T.total)}</span><br />
