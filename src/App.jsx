@@ -278,8 +278,8 @@ export default function App() {
 
         <Heading tag="اليوم" title={`الصورة العامة — ‎${S}‎`} sub="الأنواع الثلاثة لا تتداخل: الشحنة تُحسب في نوع واحد (أوردر الشركة، ثم خدمة العملاء، ثم تأخير الحالة)، ومجموعها = للمتابعة." />
         <div className="kpi-row">
-          <div className="kpi"><span className="l">إجمالي الشحنات المتأخرة</span><span className="v">{fi(T.followup)}</span>
-            <span className="d muted">{fp(T.fu_rate)} من {fi(T.total)} شحنة (كل الشحنات المتأخرة بما فيها المتكررة)</span><br /><Delta cur={T.followup} prev={P && P.followup} lowerBetter /></div>
+          <div className="kpi"><span className="l">إجمالي الشحنات</span><span className="v">{fi(T.total)}</span>
+            <span className="d muted">منها {fi(T.followup)} شحنة متأخرة للمتابعة ({fp(T.fu_rate)}) — تشمل المتكررة</span><br /><Delta cur={T.total} prev={P && P.total} /></div>
           <div className="kpi accent-bad"><span className="l">أوردر متأخر (الشركة)</span><span className="v">{fp(pctT(T, 'order_late'))}</span>
             <span className="d muted">{fi(T.order_late)} شحنة من {fi(T.total)}</span><br />
             <span className="d muted">{T.order_late ? `متوسط العمر ${T.avg_oage.toFixed(1)} يوم · أقدم ${fi(T.max_oage)} يوم` : 'لا يوجد'}</span><br /><Delta cur={pctT(T, 'order_late')} prev={P && pctT(P, 'order_late')} lowerBetter pp /></div>
