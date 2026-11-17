@@ -155,6 +155,7 @@ export default function App() {
     return { ...r, lv: levelOf(r.rate, th), d: p ? r.rate - p.rate : null };
   }).sort((a, b) => b.rate - a.rate || b.oc - a.oc);
 
+  const critCount = board.filter((r) => r.lv === 'critical').length;
   const repF = repeated.filter(branchOk);
   const repAgg = repF.reduce((a, r) => ({ count: a.count + N(r.count), notified: a.notified + N(r.notified), not_notified: a.not_notified + N(r.not_notified) }), { count: 0, notified: 0, not_notified: 0 });
 
@@ -296,6 +297,17 @@ export default function App() {
             <span className="d muted">{fi(T.notified_oc)} اتبلّغ من {fi(T.oc)}</span><br /><Delta cur={T.noti} prev={P && P.noti} lowerBetter={false} pp /></div>
           <div className="kpi"><span className="l">أوردرات متكررة (آخر تحديث)</span><span className="v">{fi(repAgg.count)}</span>
             <span className="d muted">{fi(repAgg.notified)} اتبلّغ · {fi(repAgg.not_notified)} لم يُبلَّغ</span></div>
+          <div className={'kpi ' + (repAgg.not_notified ? 'accent-bad' : 'accent-ok')}><span className="l">متكرر ولم يُبلَّغ</span><span className="v">{fi(repAgg.not_notified)}</span>
+            <span className="d muted">{repAgg.count ? `${fp(repAgg.not_notified / repAgg.count * 100)} من ${fi(repAgg.count)} أوردر متكرر` : 'لا توجد أوردرات متكررة'}</span></div>
+        </div>
+        <Heading tag="خطورة" title="الخطورة والأولوية" sub="عمر الأوردر المتأخر، والفروع في المستوى الحرج، والشحنات ذات الأولوية العالية (حدود المستويات للعرض وليست سياسة معتمدة)." />
+        <div className="kpi-row">
+          <div className="kpi accent-bad"><span className="l">متوسط عمر الأوردر المتأخر</span><span className="v">{T.order_late ? T.avg_oage.toFixed(1) + ' يوم' : '—'}</span>
+            <span className="d muted">{T.order_late ? `أقدم أوردر ${fi(T.max_oage)} يوم` : 'لا يوجد أوردر متأخر'}</span><br /><Delta cur={T.avg_oage} prev={P && P.avg_oage} lowerBetter /></div>
+          <div className={'kpi ' + (critCount ? 'accent-bad' : 'accent-ok')}><span className="l">فروع في المستوى الحرج</span><span className="v">{fi(critCount)}</span>
+            <span className="d muted">من {fi(board.length)} فرع (نسبة الأوردرات المتأخرة أعلى من {th.bad}%)</span></div>
+          <div className="kpi accent-warn"><span className="l">أولوية عالية</span><span className="v">{fi(T.high)}</span>
+            <span className="d muted">{T.followup ? `${fp(N(T.high) / T.followup * 100)} من شحنات المتابعة` : 'لا توجد شحنات'}</span><br /><Delta cur={T.high} prev={P && P.high} lowerBetter /></div>
         </div>
 
         <Heading tag="أداء" title="صحة الفروع" sub={`حسب نسبة الأوردرات المتأخرة = (أوردر + خدمة عملاء) ÷ شحنات الفرع، الأقل أفضل: ممتاز ≤ ${th.excellent}% — جيد ≤ ${th.good}% — يحتاج انتباه ≤ ${th.bad}% — حرج أعلى من ذلك (حدود للعرض وليست سياسة معتمدة)`} />
